@@ -11,16 +11,22 @@
     "deploy": "next build --no-lint && touch out/.nojekyll && node ./ghp-postbuild && git add -f out && git commit -m \"Deploy gh-pages\" && cd .. && git subtree push --prefix ui/out origin gh-pages"
   },
   "dependencies": {
+    "@aurowallet/mina-provider": "^1.0.6",
+    "@react-three/fiber": "^8.17.10",
     "coi-serviceworker": "^0.1.7",
+    "comlink": "^4.4.1",
     "next": "14.2.12",
+    "o1js": "^1.*",
     "react": "^18",
     "react-dom": "^18",
-    "o1js": "^1.*"
+    "three": "^0.170.0",
+    "zustand": "^5.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.169.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.12",
     "typescript": "^5"

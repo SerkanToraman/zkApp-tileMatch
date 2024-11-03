@@ -1,4 +1,14 @@
 {
   "version": 1,
-  "deployAliases": {}
+  "deployAliases": {
+    "zkapp-tilegame": {
+      "networkId": "testnet",
+      "url": "https://api.minascan.io/node/devnet/v1/graphql",
+      "keyPath": "keys/zkapp-tilegame.json",
+      "feepayerKeyPath": "/Users/serkantoraman/.cache/zkapp-cli/keys/zkapp-tile-game.json",
+      "feepayerAlias": "zkapp-tile-game",
+      "fee": "0.1",
+      "smartContract": "Add"
+    }
+  }
 }
