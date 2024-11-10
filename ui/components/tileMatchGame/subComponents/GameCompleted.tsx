@@ -1,20 +1,14 @@
-// components/GameCompleted.tsx
-
 import React from "react";
 
 interface GameCompletedProps {
-  score: number;
-  time: string;
-  finalScore: number; // Add finalScore to the props
+  userMatchedTilesCount: number; // User's matched tiles count
+  opponentMatchedTilesCount: number; // Opponent's matched tiles count
 }
 
 const GameCompleted: React.FC<GameCompletedProps> = ({
-  score,
-  time,
-  finalScore,
+  userMatchedTilesCount,
+  opponentMatchedTilesCount,
 }) => {
-  // Import the smart contract signing function from the Zustand store
-
   return (
     <div
       style={{
@@ -32,13 +26,11 @@ const GameCompleted: React.FC<GameCompletedProps> = ({
     >
       <h1>🎉 Game Completed! 🎉</h1>
       <p>
-        Your final score is: <strong>{finalScore}</strong>
+        Your matched tiles count: <strong>{userMatchedTilesCount}</strong>
       </p>
       <p>
-        Original Score: <strong>{score}</strong>
-      </p>
-      <p>
-        Time taken: <strong>{time}</strong>
+        Opponent&apos;s matched tiles count:{" "}
+        <strong>{opponentMatchedTilesCount}</strong>
       </p>
       <button
         style={{

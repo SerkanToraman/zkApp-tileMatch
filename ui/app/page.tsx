@@ -2,10 +2,13 @@
 
 import "./reactCOIServiceWorker";
 import Head from "next/head";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation"; // Import the useRouter hook
 import { useWalletStore } from "../store/walletStore";
 import { useSmartContractStore } from "../store/smartContractStore";
 
 export default function Home() {
+  const router = useRouter(); // Initialize the router
   const { walletInfo, connect } = useWalletStore();
   const {
     setupZkapp,
@@ -14,6 +17,13 @@ export default function Home() {
     transactionLink,
     hasBeenSetup,
   } = useSmartContractStore();
+
+  // Redirect to GameRoom when wallet is connected
+  useEffect(() => {
+    if (walletInfo.isConnected) {
+      router.push("/gameRoom"); // Replace with the correct path to GameRoom
+    }
+  }, [walletInfo.isConnected, router]);
 
   return (
     <>
