@@ -1,4 +1,7 @@
 import { Server } from "socket.io";
+import { PrivateKey, PublicKey } from "o1js";
+import { deployGameContract } from "./helpers/deployGameContract";
+
 const io = new Server(8585, {
   cors: {
     origin: "*", // Adjust for your client URL if necessary
@@ -26,7 +29,7 @@ io.on("connection", (socket) => {
   // Emit the initial list of active rooms when a user connects
   socket.emit("activeRooms", Object.values(activeRooms));
 
-  socket.on("joinRoom", (roomId: string, userId: string) => {
+  socket.on("joinRoom", async (roomId: string, userId: string) => {
     if (!activeRooms[roomId]) {
       activeRooms[roomId] = {
         roomId,
@@ -56,6 +59,22 @@ io.on("connection", (socket) => {
         `Room ${roomId} is full. Notifying clients to start the game.`
       );
       io.to(roomId).emit("startGame"); // Emit to all clients in the room
+    }
+    // Deploy the zkApp in the background without re-compiling
+    try {
+      const deployerKey = PrivateKey.random(); // Replace with actual deployer key
+      const playerKeys = room.users.map((user) => PublicKey.fromBase58(user));
+
+      const { zkAppAddress, txId } = await deployGameContract(
+        deployerKey,
+        playerKeys
+      );
+
+      // Notify clients with the zkApp address after deployment completes
+      io.to(roomId).emit("zkAppDeployed", { zkAppAddress, txId });
+    } catch (error) {
+      console.error("Error deploying zkApp:", error);
+      io.to(roomId).emit("error", { message: "Failed to deploy zkApp." });
     }
   });
   // Server-side: Notify clients to start the game and pick a random starting user

@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { GameContract } from './Game';
 
-export { Add };
+export { GameContract };

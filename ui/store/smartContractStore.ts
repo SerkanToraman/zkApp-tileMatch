@@ -141,6 +141,7 @@ export const useSmartContractStore = create<SmartContractState>((set, get) => ({
     const publicKeyBase58 = walletStore.walletInfo.account; // Fetch the user's account (public key)
 
     const zkappWorkerClient = get().zkappWorkerClient;
+    console.log("zkappWorkerClient", zkappWorkerClient);
     if (!zkappWorkerClient) {
       console.error("ZkappWorkerClient is not initialized.");
       return;
