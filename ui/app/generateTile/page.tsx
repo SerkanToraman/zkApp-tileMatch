@@ -16,9 +16,37 @@ const GenerateTilePage: React.FC = () => {
   const [tiles, setTiles] = useState<Tile[]>([]);
   const userId = useGameStore((state) => state.userId);
   const roomId = useGameStore((state) => state.roomId);
+  const userWallet1 = useGameStore((state) => state.userWallet1);
+  const userWallet2 = useGameStore((state) => state.userWallet2);
   const [confirmed, setConfirmed] = useState(false);
   const { socket } = useSocketStore();
   const router = useRouter();
+
+  const deployContract = async (deployerKey: string, playerKeys: string[]) => {
+    try {
+      const response = await fetch("/api/deployGameContract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ deployerKey, playerKeys }),
+      });
+
+      const result = await response.json();
+      console.log("Contract deployed:", result);
+    } catch (error) {
+      console.error("Failed to deploy contract:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Log user wallet information on component mount
+    console.log("User Wallet 1:", userWallet1);
+    console.log("User Wallet 2:", userWallet2);
+    if (userWallet1 && userWallet2) {
+      deployContract(userWallet1, [userWallet1, userWallet2]);
+    }
+  }, [userWallet1, userWallet2]);
 
   const handleGenerate = () => {
     const newTiles = generateTiles(); // Adjust the count as needed

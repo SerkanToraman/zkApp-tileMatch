@@ -1,5 +1,5 @@
 import { PrivateKey, PublicKey, UInt64, Mina, AccountUpdate } from "o1js";
-import { GameContract } from "../../contracts/src/Game";
+import { GameContract } from "../../../contracts/src/Game";
 
 /**
  * Helper function to deploy the GameContract smart contract

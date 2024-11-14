@@ -22,6 +22,7 @@ const GameRoom: React.FC = () => {
   const walletInfo = useWalletStore((state) => state.walletInfo);
   const userId = useGameStore((state) => state.userId);
   const roomId = useGameStore((state) => state.roomId);
+  const setUserWallets = useGameStore((state) => state.setUserWallets);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,27 +40,30 @@ const GameRoom: React.FC = () => {
       socket.on("connect", () => {
         console.log("Connected to server:", socket.id);
       });
+      // Emit wallet information to server after connecting
+      if (walletInfo.account && userId) {
+        socket.emit("userWalletInfo", {
+          userId,
+          walletAddress: walletInfo.account,
+        });
+        console.log("Sent wallet information to server:", walletInfo.account);
+      }
 
       socket.on("activeRooms", (rooms: RoomDetails[]) => {
         console.log("Active rooms received:", rooms);
         setActiveRooms(rooms);
       });
 
-      socket.on("userJoined", (room) => {
-        console.log("A user joined the room:", room);
-      });
-
-      // Listen for the startGame event and redirect to the game page
-      socket.on("startGame", () => {
-        console.log("Game is starting");
-        router.push(`/generateTile`);
+      socket.on("DirectGenerateTiles", ({ wallets }) => {
+        console.log("Received wallets for DirectGenerateTiles:", wallets);
+        setUserWallets(wallets[0], wallets[1]); // Save wallets to gameState
+        router.push(`/generateTile`); // Navigate to generateTile page
       });
 
       // Clean up event listeners on unmount
       return () => {
         socket.off("connect");
         socket.off("activeRooms");
-        socket.off("userJoined");
         socket.off("startGame");
       };
     }

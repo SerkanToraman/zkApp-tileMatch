@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import { PrivateKey, PublicKey } from "o1js";
-import { deployGameContract } from "./helpers/deployGameContract";
+import { deployGameContract } from "../ui/lib/contract/deployGameContract";
 
 const io = new Server(8585, {
   cors: {
@@ -22,12 +22,19 @@ interface Tile {
 
 const activeRooms: Record<string, RoomDetails> = {};
 const confirmedTiles: Record<string, { [userId: string]: Tile[] }> = {};
+const userWallets: Record<string, string> = {};
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Emit the initial list of active rooms when a user connects
   socket.emit("activeRooms", Object.values(activeRooms));
+
+  // Listen for userWalletInfo event to store user's wallet address
+  socket.on("userWalletInfo", ({ userId, walletAddress }) => {
+    userWallets[userId] = walletAddress; // Store the wallet address
+    console.log(`Stored wallet address for user ${userId}: ${walletAddress}`);
+  });
 
   socket.on("joinRoom", async (roomId: string, userId: string) => {
     if (!activeRooms[roomId]) {
@@ -58,23 +65,12 @@ io.on("connection", (socket) => {
       console.log(
         `Room ${roomId} is full. Notifying clients to start the game.`
       );
-      io.to(roomId).emit("startGame"); // Emit to all clients in the room
-    }
-    // Deploy the zkApp in the background without re-compiling
-    try {
-      const deployerKey = PrivateKey.random(); // Replace with actual deployer key
-      const playerKeys = room.users.map((user) => PublicKey.fromBase58(user));
-
-      const { zkAppAddress, txId } = await deployGameContract(
-        deployerKey,
-        playerKeys
-      );
-
-      // Notify clients with the zkApp address after deployment completes
-      io.to(roomId).emit("zkAppDeployed", { zkAppAddress, txId });
-    } catch (error) {
-      console.error("Error deploying zkApp:", error);
-      io.to(roomId).emit("error", { message: "Failed to deploy zkApp." });
+      // Retrieve wallet addresses for both users in the room
+      const user1Wallet = userWallets[room.users[0]];
+      const user2Wallet = userWallets[room.users[1]];
+      io.to(roomId).emit("DirectGenerateTiles", {
+        wallets: [user1Wallet, user2Wallet],
+      });
     }
   });
   // Server-side: Notify clients to start the game and pick a random starting user
