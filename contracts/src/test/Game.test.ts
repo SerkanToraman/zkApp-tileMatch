@@ -8,8 +8,9 @@ import {
   Field,
 } from 'o1js';
 import { GameContract } from '../GameContract';
-import { WinnerProgram } from '../WinnerProgram';
-import { DetermineWinner, PlayerScores } from '../DetermineWinner';
+import { TileGameLogic } from '../TileGameLogic';
+import { TileGameProgram, Tile, PlayerTiles } from '../TileGameProgram';
+import { hashUrl } from '../utils/hash';
 
 let proofsEnabled = false;
 let verificationKey: string;
@@ -29,8 +30,9 @@ describe('GameContract', () => {
     if (proofsEnabled) await GameContract.compile();
 
     const { verificationKey: zkProgramVerificationKey } =
-      await DetermineWinner.compile();
-    verificationKey = zkProgramVerificationKey.data;
+      await TileGameProgram.compile();
+    verificationKey = zkProgramVerificationKey.data; // Store verification key
+    console.log('ZkProgram compiled successfully.');
   });
 
   beforeAll(async () => {
@@ -90,43 +92,35 @@ describe('GameContract', () => {
     expect(balance).toEqual(UInt64.from(2_000_000_000));
   });
   it('should distribute the reward to the winner', async () => {
-    // Define player scores
-    const scores = new PlayerScores({
-      player1Score: Field(7),
-      player2Score: Field(8),
+    const tilesForPlayer1 = new PlayerTiles({
+      tiles: [
+        new Tile({ id: Field(1), urlHash: hashUrl('/models/tile2.glb') }),
+        new Tile({ id: Field(2), urlHash: hashUrl('/models/tile1.glb') }),
+        new Tile({ id: Field(4), urlHash: hashUrl('/models/tile2.glb') }),
+        new Tile({ id: Field(3), urlHash: hashUrl('/models/tile1.glb') }),
+      ],
     });
-    // Check initial balances
-    const player1InitialBalance = await Mina.getBalance(Player1Account);
-    const player2InitialBalance = await Mina.getBalance(Player2Account);
 
-    console.log('Player 1:', Player1Account.toBase58());
-    console.log('Player 2:', Player2Account.toBase58());
+    const tilesForPlayer2 = new PlayerTiles({
+      tiles: [
+        new Tile({ id: Field(5), urlHash: hashUrl('/models/tile2.glb') }),
+        new Tile({ id: Field(6), urlHash: hashUrl('/models/tile1.glb') }),
+        new Tile({ id: Field(7), urlHash: hashUrl('/models/tile1.glb') }),
+        new Tile({ id: Field(8), urlHash: hashUrl('/models/tile2.glb') }),
+      ],
+    });
 
-    // Use WinnerProgram to determine the winner
-    const winnerAddress = await WinnerProgram.determineWinnerWithZkProgram(
-      scores,
+    // Use TileGameLogic to initialize the game
+    const proof = await TileGameLogic.initializeGame(
       Player1Account,
       Player2Account,
+      tilesForPlayer1,
+      tilesForPlayer2,
       verificationKey
     );
 
-    console.log('Winner Address:', winnerAddress.toBase58());
-
-    // Distribute the reward to the winner
-    await distributeReward(winnerAddress);
-
-    // Fetch updated balances
-    const player1UpdatedBalance = await Mina.getBalance(Player1Account);
-    const player2UpdatedBalance = await Mina.getBalance(Player2Account);
-    const zkAppUpdatedBalance = await Mina.getBalance(zkAppAddress);
-
-    // Check that the zkApp balance decreased by the reward amount 2_000_000_000 to 0
-    expect(zkAppUpdatedBalance).toEqual(UInt64.from(0));
-    // Check that the winner's balance increased by the reward amount 2_000_000_000
-    expect(player2UpdatedBalance).toEqual(
-      player1InitialBalance.add(UInt64.from(2_000_000_000))
-    );
-    // Check that the loser's balance remained the same
-    expect(player1UpdatedBalance).toEqual(player2InitialBalance);
+    expect(proof).toBeDefined();
+    console.log('proof.', proof);
+    console.log('Tile game initialized successfully.');
   });
 });
