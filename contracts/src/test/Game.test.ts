@@ -8,9 +8,11 @@ import {
   Field,
 } from 'o1js';
 import { GameContract } from '../GameContract';
-import { WinnerProgram, PlayerScores } from '../WinnerProgram';
+import { WinnerProgram } from '../WinnerProgram';
+import { DetermineWinner, PlayerScores } from '../DetermineWinner';
 
 let proofsEnabled = false;
+let verificationKey: string;
 
 describe('GameContract', () => {
   let deployerAccount: Mina.TestPublicKey,
@@ -25,6 +27,10 @@ describe('GameContract', () => {
 
   beforeAll(async () => {
     if (proofsEnabled) await GameContract.compile();
+
+    const { verificationKey: zkProgramVerificationKey } =
+      await DetermineWinner.compile();
+    verificationKey = zkProgramVerificationKey.data;
   });
 
   beforeAll(async () => {
@@ -87,14 +93,22 @@ describe('GameContract', () => {
     // Define player scores
     const scores = new PlayerScores({
       player1Score: Field(7),
-      player2Score: Field(6),
+      player2Score: Field(8),
     });
     // Check initial balances
     const player1InitialBalance = await Mina.getBalance(Player1Account);
     const player2InitialBalance = await Mina.getBalance(Player2Account);
 
+    console.log('Player 1:', Player1Account.toBase58());
+    console.log('Player 2:', Player2Account.toBase58());
+
     // Use WinnerProgram to determine the winner
-    const winnerAddress = WinnerProgram.determineWinner(scores, zkApp);
+    const winnerAddress = await WinnerProgram.determineWinnerWithZkProgram(
+      scores,
+      Player1Account,
+      Player2Account,
+      verificationKey
+    );
 
     console.log('Winner Address:', winnerAddress.toBase58());
 
@@ -109,10 +123,10 @@ describe('GameContract', () => {
     // Check that the zkApp balance decreased by the reward amount 2_000_000_000 to 0
     expect(zkAppUpdatedBalance).toEqual(UInt64.from(0));
     // Check that the winner's balance increased by the reward amount 2_000_000_000
-    expect(player1UpdatedBalance).toEqual(
+    expect(player2UpdatedBalance).toEqual(
       player1InitialBalance.add(UInt64.from(2_000_000_000))
     );
     // Check that the loser's balance remained the same
-    expect(player2UpdatedBalance).toEqual(player2InitialBalance);
+    expect(player1UpdatedBalance).toEqual(player2InitialBalance);
   });
 });

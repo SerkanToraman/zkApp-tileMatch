@@ -1,34 +1,39 @@
-import { Field, PublicKey, Struct, Bool } from 'o1js';
-import { GameContract } from './GameContract';
-
-export class PlayerScores extends Struct({
-  player1Score: Field,
-  player2Score: Field,
-}) {}
+import { Field, PublicKey, verify, Provable } from 'o1js';
+import { DetermineWinner, PlayerScores } from './DetermineWinner';
 
 export class WinnerProgram {
-  static determineWinner(
+  static async determineWinnerWithZkProgram(
     scores: PlayerScores,
-    gameContract: GameContract
-  ): PublicKey {
-    const player1 = gameContract.player1.get();
-    const player2 = gameContract.player2.get();
+    player1: PublicKey,
+    player2: PublicKey,
+    verificationKey: string
+  ): Promise<PublicKey> {
+    console.log('Running DetermineWinner ZkProgram...');
 
-    console.log('Player1 Address:', player1.toBase58());
-    console.log('Player2 Address:', player2.toBase58());
-    console.log('Scores:');
-    console.log('Player1 Score:', scores.player1Score.toString());
-    console.log('Player2 Score:', scores.player2Score.toString());
+    // Calculate the winner locally
+    const isPlayer1Winner = scores.player1Score.greaterThan(
+      scores.player2Score
+    );
+    const calculatedWinner = Provable.if(isPlayer1Winner, player1, player2);
 
-    const winner = scores.player1Score
-      .greaterThan(scores.player2Score)
-      .toBoolean()
-      ? player1
-      : player2;
+    // Generate a proof using the ZkProgram
+    const { proof } = await DetermineWinner.calculateWinner(
+      calculatedWinner, // Pass the public input (winner's public key)
+      scores,
+      player1,
+      player2
+    );
 
-    console.log('Winner Address:', winner.toBase58());
+    console.log('Proof generated. Verifying...');
+    const isValid = await verify(proof.toJSON(), verificationKey);
 
-    console.log('Winner Address:', winner.toBase58());
-    return winner;
+    if (!isValid) {
+      throw new Error('ZkProgram verification failed!');
+    }
+
+    console.log('ZkProgram verification succeeded!');
+    console.log('Winner Address:', proof.publicInput.toBase58());
+
+    return proof.publicInput; // Return the winner's PublicKey
   }
 }

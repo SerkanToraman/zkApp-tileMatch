@@ -1,6 +1,4 @@
-import { Field, ZkProgram, PublicKey, Struct, Bool, verify } from 'o1js';
-
-
+import { Field, ZkProgram, PublicKey, Struct, Provable } from 'o1js';
 
 export class PlayerScores extends Struct({
   player1Score: Field,
@@ -12,11 +10,11 @@ export const DetermineWinner = ZkProgram({
   publicInput: PublicKey, // The winner's public key is the output
 
   methods: {
-    init: {
+    calculateWinner: {
       privateInputs: [PlayerScores, PublicKey, PublicKey],
 
       async method(
-        initialWinner: PublicKey,
+        publicInput: PublicKey,
         scores: PlayerScores,
         player1: PublicKey,
         player2: PublicKey
@@ -24,10 +22,12 @@ export const DetermineWinner = ZkProgram({
         const isPlayer1Winner = scores.player1Score.greaterThan(
           scores.player2Score
         );
-        const winner = isPlayer1Winner.toBoolean() ? player1 : player2;
+
+        // Use Provable.if to select the winner
+        const winner = Provable.if(isPlayer1Winner, player1, player2);
 
         // Assert the winner matches the expected public input
-        initialWinner.assertEquals(winner);
+        winner.assertEquals(publicInput);
       },
     },
   },
