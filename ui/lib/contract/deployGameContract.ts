@@ -19,13 +19,14 @@ async function deployGameContract(
     "https://api.minascan.io/node/devnet/v1/graphql"
   );
   Mina.setActiveInstance(Network);
+
   const vk = (await GameContract.compile()).verificationKey.hash.toJSON();
   console.log("vk", vk);
 
   const deployTransaction = await Mina.transaction(
     {
       sender: deployerKey.toPublicKey(),
-      fee: UInt64.from(1_000_000),
+      fee: UInt64.from(100_000_000),
     },
     async () => {
       AccountUpdate.fundNewAccount(deployerKey.toPublicKey());
@@ -33,8 +34,9 @@ async function deployGameContract(
       await zkAppInstance.initGame(players[0], players[1]);
     }
   );
+  await deployTransaction.prove();
 
-  await deployTransaction.sign([deployerKey, zkAppPrivateKey]);
+  deployTransaction.sign([deployerKey, zkAppPrivateKey]);
   const pendingTransaction = await deployTransaction.send();
   const txId = pendingTransaction.hash;
 

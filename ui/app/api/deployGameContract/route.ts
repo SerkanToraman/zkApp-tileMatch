@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
 
     // Convert playerKeys from Base58 strings to PublicKey instances
     const players = playerKeys.map((key: string) => PublicKey.fromBase58(key));
-    console.log("Converted player public keys:", players);
 
     // Call your deployGameContract function with the deployer key and player keys
     const result = await deployGameContract(deployerPrivateKey, players);
