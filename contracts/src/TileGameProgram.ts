@@ -6,7 +6,6 @@ import {
   SelfProof,
   Provable,
   Poseidon,
-  PublicKey,
 } from 'o1js';
 
 // Define a Tile as a struct
@@ -99,7 +98,7 @@ export const TileGameProgram = ZkProgram({
     // Method to play a turn in the game
     playTurn: {
       privateInputs: [
-        Provable.Array(Tile, 4), // Private input: all tile hashes
+        Provable.Array(Tile, 4), // Private input: all the tiles
         Provable.Array(Field, 2), // Private input: previously matched tiles
         SelfProof<PublicInput, GameOutput>, // Proof of previous game state
       ],

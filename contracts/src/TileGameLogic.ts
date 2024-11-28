@@ -67,9 +67,9 @@ export class TileGameLogic {
   static async playTurn(
     earlierProof: SelfProof<PublicInput, GameOutput>,
     verificationKey: string,
-    allTheTiles: any,
-    selectedTiles: any,
-    previouslyMatchedTiles: any,
+    allTheTiles: Tile[],
+    selectedTiles: Tile[],
+    previouslyMatchedTiles: Field[],
     currentStep: Field
   ) {
     // Public input for User 2

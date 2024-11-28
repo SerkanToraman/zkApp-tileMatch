@@ -7,15 +7,22 @@ import {
   Field,
   Bool,
   Provable,
+  SelfProof,
 } from 'o1js';
 import { GameContract } from '../GameContract';
 import { TileGameLogic } from '../TileGameLogic';
-import { TileGameProgram, PlayerTiles, Tile } from '../TileGameProgram';
+import {
+  TileGameProgram,
+  PlayerTiles,
+  Tile,
+  PublicInput,
+  GameOutput,
+} from '../TileGameProgram';
 import { hashUrl } from '../utils/hash';
 
 let proofsEnabled = false;
 let verificationKey: string;
-let earlierProof: any;
+let earlierProof: SelfProof<PublicInput, GameOutput>;
 let player1Tiles: PlayerTiles;
 let player2Tiles: PlayerTiles;
 let player1MatchedTiles: Field[] = [];
