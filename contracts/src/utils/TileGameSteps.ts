@@ -1,20 +1,13 @@
-import { verify, Field, SelfProof, PublicKey } from 'o1js';
-import {
-  TileGameProgram,
-  PublicInput,
-  GameOutput,
-  Tile,
-} from './TileGameProgram';
+import { verify, Field, SelfProof } from 'o1js';
+import { TileGameProgram } from '../TileGameProgram';
+import { GameInput, GameOutput, Tile } from './types';
 
 export class TileGameLogic {
   // Method for User 1 to initialize the game
   static async initializeGameForUser1(verificationKey: string) {
     // Public input for User 1
-    const publicInput = new PublicInput({
-      currentStep: Field(1),
-      selectedTiles: new Array(2).fill(
-        new Tile({ id: Field(0), urlHash: Field(0) })
-      ),
+    const publicInput = new GameInput({
+      selectedTiles: new Array(2).fill(new Tile({ id: Field(0) })),
     });
 
     // Generate proof and output using the ZkProgram
@@ -34,16 +27,12 @@ export class TileGameLogic {
 
   // Method for User 2 to initialize the game using User 1's proof
   static async initializeGameForUser2(
-    earlierProof: SelfProof<PublicInput, GameOutput>,
-    verificationKey: string,
-    currentStep: Field
+    earlierProof: SelfProof<GameInput, GameOutput>,
+    verificationKey: string
   ) {
     // Public input for User 2
-    const publicInput = new PublicInput({
-      currentStep: currentStep,
-      selectedTiles: new Array(2).fill(
-        new Tile({ id: Field(0), urlHash: Field(0) })
-      ),
+    const publicInput = new GameInput({
+      selectedTiles: new Array(2).fill(new Tile({ id: Field(0) })),
     });
 
     // Generate proof and output using the ZkProgram
@@ -65,16 +54,14 @@ export class TileGameLogic {
 
   // Method for User to playTurn
   static async playTurn(
-    earlierProof: SelfProof<PublicInput, GameOutput>,
+    earlierProof: SelfProof<GameInput, GameOutput>,
     verificationKey: string,
     allTheTiles: Tile[],
     selectedTiles: Tile[],
-    previouslyMatchedTiles: Field[],
-    currentStep: Field
+    previouslyMatchedTiles: Field[]
   ) {
     // Public input for User 2
-    const publicInput = new PublicInput({
-      currentStep: currentStep,
+    const publicInput = new GameInput({
       selectedTiles: selectedTiles,
     });
 
