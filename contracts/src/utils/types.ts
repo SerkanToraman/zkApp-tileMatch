@@ -1,4 +1,4 @@
-import { Field, Mina, PublicKey, Provable, Struct, Bool } from 'o1js';
+import { Field, Mina, PublicKey, Provable, Struct, Signature } from 'o1js';
 
 export interface GameContract {
   deploy: () => Promise<void>;
@@ -15,7 +15,8 @@ export class Tile extends Struct({
 }) {}
 // Define the PublicInput structure
 export class GameInput extends Struct({
-  selectedTiles: Provable.Array(Tile, 2),
+  signiture: Signature,
+  PublicKey: PublicKey,
 }) {}
 
 // Define the Output structure
