@@ -136,15 +136,22 @@ export const TileGameProgram = ZkProgram({
           .assertTrue('Player2 is empty!');
 
         // If publicInput is equal to previousOutput.Player1, then turn is 1 else turn is 2
-        const turn = earlierProof.publicOutput.Player1.equals(
-          publicInput.PublicKey
-        )
-          ? Field(1)
-          : Field(2);
+
+        const turn = Provable.switch(
+          [
+            earlierProof.publicOutput.Player1.equals(publicInput.PublicKey),
+            earlierProof.publicOutput.Player2.equals(publicInput.PublicKey),
+          ], // Conditions array
+          Field, // Output type
+          [Field(1), Field(2)] // Values corresponding to the conditions
+        );
+
         //Assert true the turn is the same as previousOutput.turn
         turn
           .equals(earlierProof.publicOutput.turn)
-          .assertTrue('Turn is the same as previous turn!');
+          .assertTrue('Invalid Public Key or Turn');
+
+        const newTurn = Provable.if(turn.equals(Field(1)), Field(2), Field(1));
 
         const isMoveEmpty = earlierProof.publicOutput.move[0].id
           .equals(Field(0))
@@ -187,7 +194,7 @@ export const TileGameProgram = ZkProgram({
             Player2: earlierProof.publicOutput.Player2,
             Board1Hash: earlierProof.publicOutput.Board1Hash,
             Board2Hash: earlierProof.publicOutput.Board2Hash,
-            turn,
+            turn: newTurn,
             move: selectedTiles,
             Player1MatchCount,
             Player2MatchCount,

@@ -151,22 +151,6 @@ describe('GameContract', () => {
   });
 
   it('Player 1 should play turn 1', async () => {
-    const publicOutput = earlierProof.publicOutput;
-
-    // console.log('Player2MatchCount:', publicOutput.Player2MatchCount.toJSON());
-    // console.log('Player1MatchCount:', publicOutput.Player1MatchCount.toJSON());
-
-    checkGameOverAndDistributeReward(
-      publicOutput.Player2MatchCount,
-      Player2Account,
-      deployerAccount,
-      deployerKey,
-      zkApp,
-      zkAppPrivateKey,
-      zkAppAddress,
-      Player1Account
-    );
-
     const selectedTiles = {
       tiles: [
         { id: hashUrl('/models/tile1.glb') },
@@ -183,27 +167,23 @@ describe('GameContract', () => {
       selectedTiles.tiles
     );
 
+    checkGameOverAndDistributeReward(
+      proof.publicOutput.Player2MatchCount,
+      Player2Account,
+      deployerAccount,
+      deployerKey,
+      zkApp,
+      zkAppPrivateKey,
+      zkAppAddress,
+      Player1Account
+    );
+
     earlierProof = proof;
 
     expect(earlierProof).toBeDefined();
   });
 
   it('Player 2 should play turn 1', async () => {
-    const publicOutput = earlierProof.publicOutput;
-
-    // console.log('Player2MatchCount:', publicOutput.Player2MatchCount.toJSON());
-    // console.log('Player1MatchCount:', publicOutput.Player1MatchCount.toJSON());
-
-    checkGameOverAndDistributeReward(
-      publicOutput.Player1MatchCount,
-      Player1Account,
-      deployerAccount,
-      deployerKey,
-      zkApp,
-      zkAppPrivateKey,
-      zkAppAddress,
-      Player2Account
-    );
     const selectedTiles = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile2.glb') }),
@@ -219,27 +199,22 @@ describe('GameContract', () => {
       player2Tiles.tiles,
       selectedTiles.tiles
     );
+    checkGameOverAndDistributeReward(
+      proof.publicOutput.Player1MatchCount,
+      Player1Account,
+      deployerAccount,
+      deployerKey,
+      zkApp,
+      zkAppPrivateKey,
+      zkAppAddress,
+      Player2Account
+    );
 
     earlierProof = proof;
 
     expect(earlierProof).toBeDefined();
   });
   it('Player 1 should play turn 2', async () => {
-    const publicOutput = earlierProof.publicOutput;
-    // console.log('Player2MatchCount:', publicOutput.Player2MatchCount.toJSON());
-    // console.log('Player1MatchCount:', publicOutput.Player1MatchCount.toJSON());
-
-    checkGameOverAndDistributeReward(
-      publicOutput.Player2MatchCount,
-      Player2Account,
-      deployerAccount,
-      deployerKey,
-      zkApp,
-      zkAppPrivateKey,
-      zkAppAddress,
-      Player1Account
-    );
-
     const selectedTiles = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile2.glb') }),
@@ -255,19 +230,8 @@ describe('GameContract', () => {
       player1Tiles.tiles,
       selectedTiles.tiles
     );
-
-    earlierProof = proof;
-
-    expect(earlierProof).toBeDefined();
-  });
-  it('Player 2 should play turn 2', async () => {
-    const publicOutput = earlierProof.publicOutput;
-
-    // console.log('Player2MatchCount:', publicOutput.Player2MatchCount.toJSON());
-    // console.log('Player1MatchCount:', publicOutput.Player1MatchCount.toJSON());
-
     checkGameOverAndDistributeReward(
-      publicOutput.Player2MatchCount,
+      proof.publicOutput.Player2MatchCount,
       Player2Account,
       deployerAccount,
       deployerKey,
@@ -277,6 +241,11 @@ describe('GameContract', () => {
       Player1Account
     );
 
+    earlierProof = proof;
+
+    expect(earlierProof).toBeDefined();
+  });
+  it('Player 2 should play turn 2', async () => {
     const selectedTiles = {
       tiles: [
         { id: hashUrl('/models/tile1.glb') },
@@ -287,31 +256,25 @@ describe('GameContract', () => {
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      Player1Account,
-      player1Signature,
-      player1Tiles.tiles,
+      Player2Account,
+      player2Signature,
+      player2Tiles.tiles,
       selectedTiles.tiles
     );
 
-    earlierProof = proof;
-
-    expect(earlierProof).toBeDefined();
-  });
-
-  it('Player 1 should recieve the Reward', async () => {
-    const publicOutput = earlierProof.publicOutput;
-    // console.log('Player2MatchCount:', publicOutput.Player2MatchCount.toJSON());
-    // console.log('Player1MatchCount:', publicOutput.Player1MatchCount.toJSON());
-
     checkGameOverAndDistributeReward(
-      publicOutput.Player2MatchCount,
-      Player2Account,
+      proof.publicOutput.Player1MatchCount,
+      Player1Account,
       deployerAccount,
       deployerKey,
       zkApp,
       zkAppPrivateKey,
       zkAppAddress,
-      Player1Account
+      Player2Account
     );
+
+    earlierProof = proof;
+
+    expect(earlierProof).toBeDefined();
   });
 });
