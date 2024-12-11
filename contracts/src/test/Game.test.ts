@@ -1,4 +1,12 @@
-import { PrivateKey, Mina, PublicKey, UInt64, Field, SelfProof } from 'o1js';
+import {
+  PrivateKey,
+  Mina,
+  PublicKey,
+  UInt64,
+  Field,
+  SelfProof,
+  Signature,
+} from 'o1js';
 import { GameContract } from '../GameContract';
 import { TileGameLogic } from '../utils/TileGameSteps';
 import { TileGameProgram } from '../TileGameProgram';
@@ -6,6 +14,7 @@ import {
   hashUrl,
   checkGameOverAndDistributeReward,
   deployZkApp,
+  hashFieldsWithPoseidon,
 } from '../utils/helpers';
 import { PlayerTiles, Tile, GameInput, GameOutput } from '../utils/types';
 
@@ -14,8 +23,10 @@ let verificationKey: string;
 let earlierProof: SelfProof<GameInput, GameOutput>;
 let player1Tiles: PlayerTiles;
 let player2Tiles: PlayerTiles;
-let player1MatchedTiles: Field[] = [];
-let player2MatchedTiles: Field[] = [];
+let Board1Hash: Field;
+let Board2Hash: Field;
+let player1Signature: Signature;
+let player2Signature: Signature;
 
 describe('GameContract', () => {
   let deployerAccount: Mina.TestPublicKey,
@@ -26,9 +37,7 @@ describe('GameContract', () => {
     Player2Key: PrivateKey,
     zkAppAddress: PublicKey,
     zkAppPrivateKey: PrivateKey,
-    zkApp: GameContract,
-    player1GameStep: Field,
-    player2GameStep: Field;
+    zkApp: GameContract;
 
   beforeAll(async () => {
     if (proofsEnabled) await GameContract.compile();
@@ -63,6 +72,12 @@ describe('GameContract', () => {
       ],
     });
 
+    Board1Hash = hashFieldsWithPoseidon(
+      player1Tiles.tiles.map((tile) => tile.id)
+    );
+
+    player1Signature = Signature.create(Player1Key, [Board1Hash]);
+
     player2Tiles = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile2.glb') }),
@@ -71,9 +86,11 @@ describe('GameContract', () => {
         new Tile({ id: hashUrl('/models/tile1.glb') }),
       ],
     });
+    Board2Hash = hashFieldsWithPoseidon(
+      player2Tiles.tiles.map((tile) => tile.id)
+    );
 
-    player1MatchedTiles = new Array(2).fill(Field(0));
-    player2MatchedTiles = new Array(2).fill(Field(0));
+    player2Signature = Signature.create(Player2Key, [Board2Hash]);
   });
 
   it('should deploy the contract', async () => {
@@ -109,21 +126,24 @@ describe('GameContract', () => {
   });
 
   it('Player 1 should initialise the game', async () => {
-    player1GameStep = Field(1);
-    const proof = await TileGameLogic.initializeGameForUser1(verificationKey);
+    const proof = await TileGameLogic.initializeGameForUser1(
+      verificationKey,
+      Player1Account,
+      player1Signature,
+      player1Tiles.tiles
+    );
     earlierProof = proof;
 
     expect(earlierProof).toBeDefined();
   });
 
   it('Player 2 should initialise the game', async () => {
-    player2GameStep = Field(2);
-    const publicOutputStep = earlierProof.publicOutput.nextStep;
-    expect(publicOutputStep).toEqual(player2GameStep);
-
     const proof = await TileGameLogic.initializeGameForUser2(
       earlierProof,
-      verificationKey
+      verificationKey,
+      Player2Account,
+      player2Signature,
+      player2Tiles.tiles
     );
     earlierProof = proof;
 
@@ -131,72 +151,24 @@ describe('GameContract', () => {
   });
 
   it('Player 1 should play turn 1', async () => {
-    const allTheTiles = player1Tiles;
-    player1GameStep = player1GameStep.add(Field(2));
-    const publicOutputStep = earlierProof.publicOutput.nextStep;
-    expect(publicOutputStep).toEqual(player1GameStep);
-
-    const selectedTiles = new PlayerTiles({
+    const selectedTiles = {
       tiles: [
-        new Tile({ id: hashUrl('/models/tile1.glb') }),
-        new Tile({ id: hashUrl('/models/tile1.glb') }),
+        { id: hashUrl('/models/tile1.glb') },
+        { id: hashUrl('/models/tile1.glb') },
       ],
-    });
+    };
 
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      allTheTiles.tiles,
-      selectedTiles.tiles,
-      player1MatchedTiles
-    );
-
-    const publicOutput = proof.publicOutput;
-    player1MatchedTiles = publicOutput.matchedTiles.map((hash) => Field(hash));
-
-    checkGameOverAndDistributeReward(
-      player1MatchedTiles,
       Player1Account,
-      deployerAccount,
-      deployerKey,
-      zkApp,
-      zkAppPrivateKey,
-      zkAppAddress,
-      Player2Account
+      player1Signature,
+      player1Tiles.tiles,
+      selectedTiles.tiles
     );
-
-    earlierProof = proof;
-
-    expect(earlierProof).toBeDefined();
-  });
-
-  it('Player 2 should play turn 1', async () => {
-    const allTheTiles = player2Tiles;
-    player2GameStep = player2GameStep.add(Field(2));
-    const publicOutputStep = earlierProof.publicOutput.nextStep;
-    expect(publicOutputStep).toEqual(player2GameStep);
-
-    const selectedTiles = new PlayerTiles({
-      tiles: [
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-      ],
-    });
-
-    const proof = await TileGameLogic.playTurn(
-      earlierProof,
-      verificationKey,
-      allTheTiles.tiles,
-      selectedTiles.tiles,
-      player2MatchedTiles
-    );
-
-    const publicOutput = proof.publicOutput;
-
-    player2MatchedTiles = publicOutput.matchedTiles.map((hash) => Field(hash));
 
     checkGameOverAndDistributeReward(
-      player2MatchedTiles,
+      proof.publicOutput.Player2MatchCount,
       Player2Account,
       deployerAccount,
       deployerKey,
@@ -210,12 +182,8 @@ describe('GameContract', () => {
 
     expect(earlierProof).toBeDefined();
   });
-  it('Player 1 should play turn 2', async () => {
-    const allTheTiles = player1Tiles;
-    player1GameStep = player1GameStep.add(Field(2));
-    const publicOutputStep = earlierProof.publicOutput.nextStep;
-    expect(publicOutputStep).toEqual(player1GameStep);
 
+  it('Player 2 should play turn 1', async () => {
     const selectedTiles = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile2.glb') }),
@@ -226,17 +194,76 @@ describe('GameContract', () => {
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      allTheTiles.tiles,
-      selectedTiles.tiles,
-      player1MatchedTiles
+      Player2Account,
+      player2Signature,
+      player2Tiles.tiles,
+      selectedTiles.tiles
+    );
+    checkGameOverAndDistributeReward(
+      proof.publicOutput.Player1MatchCount,
+      Player1Account,
+      deployerAccount,
+      deployerKey,
+      zkApp,
+      zkAppPrivateKey,
+      zkAppAddress,
+      Player2Account
     );
 
-    const publicOutput = proof.publicOutput;
+    earlierProof = proof;
 
-    player1MatchedTiles = publicOutput.matchedTiles.map((hash) => Field(hash));
+    expect(earlierProof).toBeDefined();
+  });
+  it('Player 1 should play turn 2', async () => {
+    const selectedTiles = new PlayerTiles({
+      tiles: [
+        new Tile({ id: hashUrl('/models/tile2.glb') }),
+        new Tile({ id: hashUrl('/models/tile2.glb') }),
+      ],
+    });
+
+    const proof = await TileGameLogic.playTurn(
+      earlierProof,
+      verificationKey,
+      Player1Account,
+      player1Signature,
+      player1Tiles.tiles,
+      selectedTiles.tiles
+    );
+    checkGameOverAndDistributeReward(
+      proof.publicOutput.Player2MatchCount,
+      Player2Account,
+      deployerAccount,
+      deployerKey,
+      zkApp,
+      zkAppPrivateKey,
+      zkAppAddress,
+      Player1Account
+    );
+
+    earlierProof = proof;
+
+    expect(earlierProof).toBeDefined();
+  });
+  it('Player 2 should play turn 2', async () => {
+    const selectedTiles = {
+      tiles: [
+        { id: hashUrl('/models/tile1.glb') },
+        { id: hashUrl('/models/tile1.glb') },
+      ],
+    };
+
+    const proof = await TileGameLogic.playTurn(
+      earlierProof,
+      verificationKey,
+      Player2Account,
+      player2Signature,
+      player2Tiles.tiles,
+      selectedTiles.tiles
+    );
 
     checkGameOverAndDistributeReward(
-      player1MatchedTiles,
+      proof.publicOutput.Player1MatchCount,
       Player1Account,
       deployerAccount,
       deployerKey,

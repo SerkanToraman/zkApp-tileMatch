@@ -5,6 +5,8 @@ import {
   Provable,
   AccountUpdate,
   PrivateKey,
+  Poseidon,
+  Bool,
 } from 'o1js';
 import { createHash } from 'crypto';
 import { GameContract } from './types';
@@ -15,8 +17,12 @@ export function hashUrl(url: string): Field {
   return Field(hashNumber);
 }
 
+export function hashFieldsWithPoseidon(fields: Field[]): Field {
+  return Poseidon.hash(fields); // Efficient zk-friendly hashing
+}
+
 export function checkGameOverAndDistributeReward(
-  matchedTiles: Field[],
+  playerMatchCount: Field,
   currentPlayerAccount: PublicKey,
   deployerAccount: Mina.TestPublicKey,
   deployerKey: PrivateKey,
@@ -26,19 +32,15 @@ export function checkGameOverAndDistributeReward(
   otherPlayerAccount: PublicKey
 ) {
   Provable.asProver(() => {
-    let nonZeroMatchedTileCount = 0;
-
-    // Loop through matchedTiles to count non-zero values
-    for (let i = 0; i < matchedTiles.length; i++) {
-      if (matchedTiles[i].equals(Field(0)).not().toBoolean()) {
-        nonZeroMatchedTileCount++;
-      }
-    }
-
     // Check if the number of non-zero matched tiles is 2
-    const isGameOver = nonZeroMatchedTileCount === 2;
 
-    if (isGameOver) {
+    console.log('playerMatchCount', playerMatchCount);
+    console.log('currentPlayerAccount', Field(2));
+
+    const isGameOver = Bool(playerMatchCount.equals(Field(2)));
+    console.log('isGameOver', isGameOver);
+
+    if (isGameOver.toBoolean()) {
       console.log(`Distributing reward to Player...`);
 
       // Call distributeReward directly
