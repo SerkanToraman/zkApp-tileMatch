@@ -1,6 +1,8 @@
-import { Field, Bool, ZkProgram, SelfProof, Provable } from 'o1js';
+import { Field, Bool, ZkProgram, SelfProof, Provable, PublicKey } from 'o1js';
 import { GameInput, GameOutput, Tile } from './utils/types';
-import { hashUrl } from './utils/helpers';
+import { hashFieldsWithPoseidon } from './utils/helpers';
+
+const emptyTiles = new Array(2).fill(new Tile({ id: Field(0) }));
 
 // Define the TileGameProgram
 export const TileGameProgram = ZkProgram({
@@ -13,137 +15,185 @@ export const TileGameProgram = ZkProgram({
     initGamePlayer1: {
       privateInputs: [Provable.Array(Tile, 4)],
 
-      async method(publicInput: GameInput, player1Tiles: Tile[]) {
-        const nextStep = Field(2);
-        const BoardHash = hashUrl(
-          player1Tiles.map((tile) => tile.id).join(',')
+      async method(publicInput: GameInput, playerTiles: Tile[]) {
+        const BoardHash = hashFieldsWithPoseidon(
+          playerTiles.map((tile) => tile.id)
         );
 
         // Perform the signature verification
         const isVerified = publicInput.signiture.verify(publicInput.PublicKey, [
           BoardHash,
         ]);
-        Provable.log('Signature verification (Provable.log):', isVerified);
-
-        // Handle failed verification
-        if (!isVerified) {
-          throw new Error('Signature verification failed!');
-        }
+        // Enforce the signature verification result
+        isVerified.assertTrue('Signature verification failed!');
 
         return {
           publicOutput: new GameOutput({
-            nextStep: nextStep,
-            matchedTiles: new Array(2).fill(Field(0)),
+            Player1: publicInput.PublicKey,
+            Player2: PublicKey.empty(),
+            Board1Hash: BoardHash,
+            Board2Hash: Field.empty(),
+            turn: Field(2),
+            move: emptyTiles,
+            Player1MatchCount: Field(0),
+            Player2MatchCount: Field(0),
           }),
         };
       },
     },
 
-    // // Initialize the game state for Player 2, using Player 1's proof
-    // initGamePlayer2: {
-    //   privateInputs: [SelfProof<GameInput, GameOutput>],
+    // Initialize the game state for Player 2, using Player 1's proof
+    initGamePlayer2: {
+      privateInputs: [
+        SelfProof<GameInput, GameOutput>,
+        Provable.Array(Tile, 4),
+      ],
 
-    //   async method(
-    //     publicInput: GameInput,
-    //     earlierProof: SelfProof<GameInput, GameOutput>
-    //   ) {
-    //     earlierProof.verify();
+      async method(
+        publicInput: GameInput,
+        earlierProof: SelfProof<GameInput, GameOutput>,
+        playerTiles: Tile[]
+      ) {
+        const BoardHash = hashFieldsWithPoseidon(
+          playerTiles.map((tile) => tile.id)
+        );
+        const isVerified = publicInput.signiture.verify(publicInput.PublicKey, [
+          BoardHash,
+        ]);
+        // Enforce the signature verification result
+        isVerified.assertTrue('Signature verification failed!');
 
-    //     const nextStep = earlierProof.publicOutput.nextStep.add(Field(1));
+        earlierProof.verify();
+        // Assert that the turn is Field(2)
+        earlierProof.publicOutput.turn
+          .equals(Field(2))
+          .assertTrue('Turn is not Field(2)');
 
-    //     return {
-    //       publicOutput: new GameOutput({
-    //         nextStep: nextStep,
-    //         matchedTiles: earlierProof.publicOutput.matchedTiles,
-    //       }),
-    //     };
-    //   },
-    // },
+        // Assert that Player1 is not empty
+        earlierProof.publicOutput.Player1.equals(PublicKey.empty())
+          .not()
+          .assertTrue('Player1 is empty!');
 
-    // // Method to play a turn in the game
-    // playTurn: {
-    //   privateInputs: [
-    //     Provable.Array(Tile, 4), // Private input: all the tiles
-    //     Provable.Array(Field, 2), // Private input: previously matched tiles
-    //     SelfProof<GameInput, GameOutput>, // Proof of previous game state
-    //   ],
+        // Assert that Board1 is not empty
+        earlierProof.publicOutput.Board1Hash.equals(Field.empty())
+          .not()
+          .assertTrue('Board1Hash is empty!');
 
-    //   async method(
-    //     publicInput: GameInput,
-    //     allTheTiles: Tile[], // Array of all tile hashes
-    //     previouslyMatchedTiles: Field[], // Previously matched tiles
-    //     earlierProof: SelfProof<GameInput, GameOutput>
-    //   ) {
-    //     earlierProof.verify();
+        // Check if earlierProof.publicOutput.move is equal to emptyTiles
+        for (let i = 0; i < earlierProof.publicOutput.move.length; i++) {
+          earlierProof.publicOutput.move[i].id
+            .equals(emptyTiles[i].id)
+            .assertTrue('Move is not equal to emptyTiles!');
+        }
 
-    //     // Validate that selected tiles are part of allTheTiles
-    //     for (let i = 0; i < publicInput.selectedTiles.length; i++) {
-    //       const selectedTile = publicInput.selectedTiles[i];
-    //       let tileExists = Bool(false);
+        return {
+          publicOutput: new GameOutput({
+            Player1: earlierProof.publicOutput.Player1,
+            Player2: publicInput.PublicKey,
+            Board1Hash: earlierProof.publicOutput.Board1Hash,
+            Board2Hash: BoardHash,
+            turn: Field(1),
+            move: emptyTiles,
+            Player1MatchCount: Field(0),
+            Player2MatchCount: Field(0),
+          }),
+        };
+      },
+    },
 
-    //       for (let j = 0; j < allTheTiles.length; j++) {
-    //         const allTile = allTheTiles[j];
-    //         tileExists = tileExists.or(allTile.id.equals(selectedTile.id));
-    //       }
+    // Method to play a turn in the game
+    playTurn: {
+      privateInputs: [
+        SelfProof<GameInput, GameOutput>,
+        Provable.Array(Tile, 4),
+        Provable.Array(Tile, 2),
+      ],
+      async method(
+        publicInput: GameInput,
+        earlierProof: SelfProof<GameInput, GameOutput>,
+        playerTiles: Tile[],
+        selectedTiles: Tile[]
+      ) {
+        const BoardHash = hashFieldsWithPoseidon(
+          playerTiles.map((tile) => tile.id)
+        );
+        const isVerified = publicInput.signiture.verify(publicInput.PublicKey, [
+          BoardHash,
+        ]);
+        // Enforce the signature verification result
+        isVerified.assertTrue('Signature verification failed!');
 
-    //       tileExists.assertTrue('Selected tile is not part of allTheTiles');
-    //     }
+        earlierProof.verify();
 
-    //     // Extract selected tiles
-    //     const [tile1, tile2] = publicInput.selectedTiles;
+        // Assert that Player1 is not empty
+        earlierProof.publicOutput.Player1.equals(PublicKey.empty())
+          .not()
+          .assertTrue('Player1 is empty!');
 
-    //     // Check if the two selected tiles are the same
-    //     const areTilesMatched = tile1.id.equals(tile2.id);
+        // Assert that Player2 is not empty
+        earlierProof.publicOutput.Player2.equals(PublicKey.empty())
+          .not()
+          .assertTrue('Player2 is empty!');
 
-    //     // Use Provable.switch to handle the matched and unmatched cases
-    //     const newMatchedHashes = Provable.switch(
-    //       [areTilesMatched, areTilesMatched.not()],
-    //       Provable.Array(Field, 2), // Type of the output
-    //       [
-    //         // Case: Tiles are matched
-    //         (() => {
-    //           // Ensure the selected tile is not already matched
-    //           for (let i = 0; i < previouslyMatchedTiles.length; i++) {
-    //             previouslyMatchedTiles[i].assertNotEquals(
-    //               tile1.id,
-    //               `Selected tile is already matched.`
-    //             );
-    //           }
+        // If publicInput is equal to previousOutput.Player1, then turn is 1 else turn is 2
+        const turn = earlierProof.publicOutput.Player1.equals(
+          publicInput.PublicKey
+        )
+          ? Field(1)
+          : Field(2);
+        //Assert true the turn is the same as previousOutput.turn
+        turn
+          .equals(earlierProof.publicOutput.turn)
+          .assertTrue('Turn is the same as previous turn!');
 
-    //           // Replace the first occurrence of Field(0) in previouslyMatchedTiles
-    //           const updatedHashes = [...previouslyMatchedTiles];
-    //           let replaced = Bool(false);
+        const isMoveEmpty = earlierProof.publicOutput.move[0].id
+          .equals(Field(0))
+          .and(earlierProof.publicOutput.move[1].id.equals(Field(0)));
 
-    //           for (let i = 0; i < updatedHashes.length; i++) {
-    //             const isDefaultHash = updatedHashes[i].equals(Field(0));
+        // Check if tiles in the move match
+        const isTilesMatch = earlierProof.publicOutput.move[0].id.equals(
+          earlierProof.publicOutput.move[1].id
+        );
 
-    //             updatedHashes[i] = Provable.if(
-    //               isDefaultHash.and(replaced.not()), // Replace only the first Field(0)
-    //               tile1.id, // Replacement value
-    //               updatedHashes[i] // Keep the original value
-    //             );
+        // Calculate Player1MatchCount
+        const Player1MatchCount = Provable.if(
+          isMoveEmpty,
+          earlierProof.publicOutput.Player1MatchCount, // Case 1: Move is empty, no change
+          Provable.if(
+            isTilesMatch.and(
+              publicInput.PublicKey.equals(earlierProof.publicOutput.Player2)
+            ),
+            earlierProof.publicOutput.Player1MatchCount.add(1), // Case 2: Tiles match and move by Player2
+            earlierProof.publicOutput.Player1MatchCount // Default: No change
+          )
+        );
 
-    //             replaced = replaced.or(isDefaultHash);
-    //           }
+        // Calculate Player2MatchCount
+        const Player2MatchCount = Provable.if(
+          isMoveEmpty,
+          earlierProof.publicOutput.Player2MatchCount, // Case 1: Move is empty, no change
+          Provable.if(
+            isTilesMatch.and(
+              publicInput.PublicKey.equals(earlierProof.publicOutput.Player1)
+            ),
+            earlierProof.publicOutput.Player2MatchCount.add(1), // Case 2: Tiles match and move by Player1
+            earlierProof.publicOutput.Player2MatchCount // Default: No change
+          )
+        );
 
-    //           return updatedHashes; // Ensure the array size remains 2
-    //         })(),
-    //         // Case: Tiles are not matched
-    //         previouslyMatchedTiles,
-    //       ]
-    //     );
-
-    //     // Compute the next step
-    //     const nextStep = earlierProof.publicOutput.nextStep.add(Field(1));
-
-    //     // Return updated game output
-    //     return {
-    //       publicOutput: new GameOutput({
-    //         nextStep: nextStep,
-    //         matchedTiles: newMatchedHashes,
-    //       }),
-    //     };
-    //   },
-    // },
+        return {
+          publicOutput: new GameOutput({
+            Player1: earlierProof.publicOutput.Player1,
+            Player2: earlierProof.publicOutput.Player2,
+            Board1Hash: earlierProof.publicOutput.Board1Hash,
+            Board2Hash: earlierProof.publicOutput.Board2Hash,
+            turn,
+            move: selectedTiles,
+            Player1MatchCount,
+            Player2MatchCount,
+          }),
+        };
+      },
+    },
   },
 });
