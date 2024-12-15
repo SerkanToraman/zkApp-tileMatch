@@ -16,7 +16,6 @@ export class Tile extends Struct({
 // Define the PublicInput structure
 export class GameInput extends Struct({
   signiture: Signature,
-  PublicKey: PublicKey,
 }) {}
 
 // Define the Output structure
@@ -26,9 +25,11 @@ export class GameOutput extends Struct({
   Board1Hash: Field,
   Board2Hash: Field,
   turn: Field,
-  move: Provable.Array(Tile, 2),
+  move: Provable.Array(Field, 2),
   Player1MatchCount: Field,
   Player2MatchCount: Field,
+  Player1PreviousMoves: Provable.Array(Field, 4),
+  Player2PreviousMoves: Provable.Array(Field, 4),
 }) {}
 
 // Define PlayerTiles as a struct

@@ -21,12 +21,14 @@ import { PlayerTiles, Tile, GameInput, GameOutput } from '../utils/types';
 let proofsEnabled = false;
 let verificationKey: string;
 let earlierProof: SelfProof<GameInput, GameOutput>;
-let player1Tiles: PlayerTiles;
-let player2Tiles: PlayerTiles;
+let player1GeneratedBoard: PlayerTiles;
+let player2GeneratedBoard: PlayerTiles;
 let Board1Hash: Field;
 let Board2Hash: Field;
 let player1Signature: Signature;
 let player2Signature: Signature;
+let player1BoardGenerationSignature: Signature;
+let player2BoardGenerationSignature: Signature;
 
 describe('GameContract', () => {
   let deployerAccount: Mina.TestPublicKey,
@@ -63,7 +65,7 @@ describe('GameContract', () => {
     zkApp = new GameContract(zkAppAddress);
 
     // Initialize tiles for Player 1 and Player 2
-    player1Tiles = new PlayerTiles({
+    player1GeneratedBoard = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile1.glb') }),
         new Tile({ id: hashUrl('/models/tile2.glb') }),
@@ -73,12 +75,10 @@ describe('GameContract', () => {
     });
 
     Board1Hash = hashFieldsWithPoseidon(
-      player1Tiles.tiles.map((tile) => tile.id)
+      player1GeneratedBoard.tiles.map((tile) => tile.id)
     );
 
-    player1Signature = Signature.create(Player1Key, [Board1Hash]);
-
-    player2Tiles = new PlayerTiles({
+    player2GeneratedBoard = new PlayerTiles({
       tiles: [
         new Tile({ id: hashUrl('/models/tile2.glb') }),
         new Tile({ id: hashUrl('/models/tile1.glb') }),
@@ -87,10 +87,28 @@ describe('GameContract', () => {
       ],
     });
     Board2Hash = hashFieldsWithPoseidon(
-      player2Tiles.tiles.map((tile) => tile.id)
+      player2GeneratedBoard.tiles.map((tile) => tile.id)
     );
 
-    player2Signature = Signature.create(Player2Key, [Board2Hash]);
+    // This signature is used only for the first turn. Player 1 generates their own board (Board1) for Player 2,
+    // signs its hash (Board1Hash), and sends it to Player 2 for verification. Player 2 will play on this board.
+    player1BoardGenerationSignature = Signature.create(Player1Key, [
+      Board1Hash,
+    ]);
+
+    // This signature is used only for the first turn. Player 2 generates their own board (Board2) for Player 1,
+    // signs its hash (Board2Hash), and sends it to Player 1 for verification. Player 1 will play on this board.
+    player2BoardGenerationSignature = Signature.create(Player2Key, [
+      Board2Hash,
+    ]);
+
+    // This signature is used for all turns after the first. Player 1 signs the hash of Player 2's board (Board2Hash)
+    // to verify the state of Player 2's board or validate their move.
+    player1Signature = Signature.create(Player1Key, [Board2Hash]);
+
+    // This signature is used for all turns after the first. Player 2 signs the hash of Player 1's board (Board1Hash)
+    // to verify the state of Player 1's board or validate their move.
+    player2Signature = Signature.create(Player2Key, [Board1Hash]);
   });
 
   it('should deploy the contract', async () => {
@@ -129,8 +147,8 @@ describe('GameContract', () => {
     const proof = await TileGameLogic.initializeGameForUser1(
       verificationKey,
       Player1Account,
-      player1Signature,
-      player1Tiles.tiles
+      player1BoardGenerationSignature,
+      player1GeneratedBoard.tiles
     );
     earlierProof = proof;
 
@@ -142,8 +160,8 @@ describe('GameContract', () => {
       earlierProof,
       verificationKey,
       Player2Account,
-      player2Signature,
-      player2Tiles.tiles
+      player2BoardGenerationSignature,
+      player2GeneratedBoard.tiles
     );
     earlierProof = proof;
 
@@ -151,20 +169,14 @@ describe('GameContract', () => {
   });
 
   it('Player 1 should play turn 1', async () => {
-    const selectedTiles = {
-      tiles: [
-        { id: hashUrl('/models/tile1.glb') },
-        { id: hashUrl('/models/tile1.glb') },
-      ],
-    };
+    const selectedTiles = [Field(0), Field(2)];
 
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      Player1Account,
       player1Signature,
-      player1Tiles.tiles,
-      selectedTiles.tiles
+      player2GeneratedBoard.tiles,
+      selectedTiles
     );
 
     checkGameOverAndDistributeReward(
@@ -184,20 +196,14 @@ describe('GameContract', () => {
   });
 
   it('Player 2 should play turn 1', async () => {
-    const selectedTiles = new PlayerTiles({
-      tiles: [
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-      ],
-    });
+    const selectedTiles = [Field(0), Field(2)];
 
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      Player2Account,
       player2Signature,
-      player2Tiles.tiles,
-      selectedTiles.tiles
+      player1GeneratedBoard.tiles,
+      selectedTiles
     );
     checkGameOverAndDistributeReward(
       proof.publicOutput.Player1MatchCount,
@@ -215,20 +221,14 @@ describe('GameContract', () => {
     expect(earlierProof).toBeDefined();
   });
   it('Player 1 should play turn 2', async () => {
-    const selectedTiles = new PlayerTiles({
-      tiles: [
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-        new Tile({ id: hashUrl('/models/tile2.glb') }),
-      ],
-    });
+    const selectedTiles = [Field(1), Field(3)];
 
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      Player1Account,
       player1Signature,
-      player1Tiles.tiles,
-      selectedTiles.tiles
+      player2GeneratedBoard.tiles,
+      selectedTiles
     );
     checkGameOverAndDistributeReward(
       proof.publicOutput.Player2MatchCount,
@@ -246,20 +246,14 @@ describe('GameContract', () => {
     expect(earlierProof).toBeDefined();
   });
   it('Player 2 should play turn 2', async () => {
-    const selectedTiles = {
-      tiles: [
-        { id: hashUrl('/models/tile1.glb') },
-        { id: hashUrl('/models/tile1.glb') },
-      ],
-    };
+    const selectedTiles = [Field(1), Field(3)];
 
     const proof = await TileGameLogic.playTurn(
       earlierProof,
       verificationKey,
-      Player2Account,
       player2Signature,
-      player2Tiles.tiles,
-      selectedTiles.tiles
+      player1GeneratedBoard.tiles,
+      selectedTiles
     );
 
     checkGameOverAndDistributeReward(

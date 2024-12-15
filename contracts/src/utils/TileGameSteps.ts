@@ -1,6 +1,7 @@
 import { verify, Field, Mina, SelfProof, PublicKey, Signature } from 'o1js';
 import { TileGameProgram } from '../TileGameProgram';
 import { GameInput, GameOutput, Tile } from './types';
+import { FieldType } from 'o1js/dist/node/lib/provable/core/fieldvar';
 
 export class TileGameLogic {
   // Method for User 1 to initialize the game
@@ -8,18 +9,18 @@ export class TileGameLogic {
     verificationKey: string,
     player1Account: PublicKey,
     player1Signature: Signature,
-    player1Tiles: Tile[]
+    player1Board: Tile[]
   ) {
     // Public input for User 1
     const publicInput = new GameInput({
       signiture: player1Signature,
-      PublicKey: player1Account,
     });
 
     // Generate proof and output using the ZkProgram
     const { proof: initGameProof } = await TileGameProgram.initGamePlayer1(
       publicInput,
-      player1Tiles
+      player1Account,
+      player1Board
     );
 
     // Verify the proof
@@ -38,19 +39,19 @@ export class TileGameLogic {
     verificationKey: string,
     player2Account: PublicKey,
     player2Signature: Signature,
-    player2Tiles: Tile[]
+    player1Board: Tile[]
   ) {
     // Public input for User 2
     const publicInput = new GameInput({
       signiture: player2Signature,
-      PublicKey: player2Account,
     });
 
     // Generate proof and output using the ZkProgram
     const { proof: initGameProof } = await TileGameProgram.initGamePlayer2(
       publicInput,
       earlierProof,
-      player2Tiles
+      player2Account,
+      player1Board
     );
 
     // Verify the proof
@@ -68,15 +69,13 @@ export class TileGameLogic {
   static async playTurn(
     earlierProof: SelfProof<GameInput, GameOutput>,
     verificationKey: string,
-    playerAccount: Mina.TestPublicKey,
     playerSignature: Signature,
     playerTiles: Tile[],
-    selectedTiles: Tile[]
+    selectedTiles: Field[]
   ) {
     // Public input for User
     const publicInput = new GameInput({
       signiture: playerSignature,
-      PublicKey: playerAccount,
     });
 
     // Generate proof and output using the ZkProgram
@@ -89,8 +88,6 @@ export class TileGameLogic {
 
     // Verify the proof
     const isValid = await verify(playTurn.toJSON(), verificationKey);
-
-    console.log('Verified proof', playTurn.toJSON());
 
     if (!isValid) {
       throw new Error('Tile game initialization for User 2 failed!');
